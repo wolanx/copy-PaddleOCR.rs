@@ -14,6 +14,8 @@ use image::io::Reader as ImageReader;
 use image::RgbImage;
 #[cfg(feature = "dbg")]
 use imageproc::drawing::draw_filled_rect_mut;
+use onnxruntime::environment::Environment;
+use onnxruntime::LoggingLevel;
 use tract_onnx::prelude::*;
 use tract_onnx::prelude::tract_itertools::Itertools;
 use tract_onnx::prelude::tract_num_traits::abs;
@@ -39,14 +41,17 @@ const DETECT_AREA_EXPAND_PADDING_Y: u32 = 1;
 #[tokio::main]
 async fn main() -> TractResult<()> {
     let mut timer = Timer::new();
-    let image_path = "example/test.jpeg";
+    let image_path = "example/test.jpg";
     let rec_model = onnx()
         // load the model
-        .model_for_path("model/rec.onnx")?
+        .model_for_path("model/rec2.onnx")?
         // optimize the model
-        .into_optimized()?
+        // .into_optimized()?;
         // make the model runnable and fix its inputs and outputs
-        .into_runnable()?;
+        .with_input_fact(0, InferenceFact::dt_shape(f32::datum_type(), tvec!(1, 3, -1, -1)))?
+    ;// Specify dynamic input size
+
+    // .into_runnable()?;
     let rec_model = Arc::new(rec_model);
     let det_model = onnx()
         // load the model
@@ -174,7 +179,7 @@ async fn main() -> TractResult<()> {
                     let mut buf = BufWriter::new(File::create(format!("output/{counter}.png")).unwrap());
                     sub_image.write_to(&mut buf, ImageOutputFormat::Png).expect(format!("{rect_c:?},{rect:?}").as_str());
                 }
-                rec(&rec_model_cloned, &sub_image, &label_cloned).unwrap();
+                // rec(&rec_model_cloned, &sub_image, &label_cloned).unwrap();
             }
         });
         handlers.push(handler);
@@ -258,20 +263,30 @@ fn rec<F, O, M>(model: &RunnableModel<F, O, M>, image: &RgbImage, label: &Vec<St
 
 #[test]
 fn test() {
-    use plt::*;
+    // use plt::*;
 
     let xs: Vec<f64> = (0..=100).map(|n: u32| n as f64 * 0.1).collect();
     let ys: Vec<f64> = xs.iter().map(|x| x.powi(3)).collect();
 
-    let mut sp = Subplot::builder()
-        .label(Axes::X, "x data")
-        .label(Axes::Y, "y data")
-        .build();
+    // let mut sp = Subplot::builder()
+    //     .label(Axes::X, "x data")
+    //     .label(Axes::Y, "y data")
+    //     .build();
 
-    sp.plot(&xs, &ys).unwrap();
+    // sp.plot(&xs, &ys).unwrap();
+    //
+    // let mut fig = <Figure>::default();
+    // fig.set_layout(SingleLayout::new(sp)).unwrap();
 
-    let mut fig = <Figure>::default();
-    fig.set_layout(SingleLayout::new(sp)).unwrap();
+    // fig.draw_file(FileFormat::Png, "example.png").unwrap();
+}
 
-    fig.draw_file(FileFormat::Png, "example.png").unwrap();
+#[test]
+fn test2() {
+    let environment = Environment::builder()
+        .with_name("test")
+        .with_log_level(LoggingLevel::Verbose)
+        .build().unwrap();
+
+    println!("123");
 }
